@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta property="og:image" content="https://raw.githubusercontent.com/jedbjorn/Emergence_Project_Public/main/assets_public/emergence-wordmark.png">
 <title>Journal — TITLE</title>
+<link rel="icon" type="image/png" href="https://raw.githubusercontent.com/jedbjorn/Emergence_Project_Public/main/assets_public/emergence-mark-light.png">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -63,7 +65,7 @@
     font-weight: 600;
     line-height: 1.2;
     color: var(--text);
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
   .header-sub {
     font-size: 16px;
@@ -72,7 +74,7 @@
     max-width: 560px;
   }
   .header-meta {
-    margin-top: 20px;
+    margin-top: 8px;
     font-family: var(--mono);
     font-size: 12px;
     color: var(--text-light);
@@ -82,9 +84,63 @@
     flex-wrap: wrap;
   }
 
+  .layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .sidenav {
+    width: 600px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 32px 0 32px 24px;
+    scrollbar-width: none;
+  }
+  .sidenav::-webkit-scrollbar { display: none; }
+  .content { scrollbar-width: none; }
+  .content::-webkit-scrollbar { display: none; }
+
+  .sidenav a {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--text-light);
+    text-decoration: none;
+    text-align: right;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+  }
+  .sidenav a:hover {
+    color: var(--text-mid);
+    background: var(--bg-alt);
+  }
+  .sidenav a.active {
+    color: var(--accent);
+    background: var(--accent-light);
+  }
+  .sidenav a.sub {
+    font-size: 11px;
+    font-weight: 400;
+    padding: 6px 16px 6px 28px;
+  }
+
+  @media (max-width: 900px) {
+    .sidenav { display: none; }
+  }
+
   .content {
     max-width: 720px;
-    margin: 0 auto;
+    margin: 0;
     padding: 48px 32px 80px;
     flex: 1;
     overflow-y: auto;
@@ -198,7 +254,10 @@
     margin-top: 64px;
     padding-top: 24px;
     border-top: 1px solid var(--border-light);
+    text-align: center;
   }
+  .footer-note a { color: var(--accent); text-decoration: none; }
+  .footer-note a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -209,26 +268,67 @@
     <h1>TITLE</h1>
     <p class="header-sub">SUBTITLE</p>
     <div class="header-meta">
-      <span>Author: AUTHOR</span>
-      <span>DATE</span>
-      <span>Session XX</span>
-      <span>Contributor: CONTRIBUTOR</span>
-      <span>Document word count: X,XXX words</span>
     </div>
     <a href="https://emergence.designs-os.com/" target="_blank" rel="noopener" style="display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--text-light);text-decoration:none;text-transform:uppercase;margin-top:0;transition:color .15s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-light)'">&larr; THE EMERGENCE PROJECT</a>
   </div>
 </div>
 
-<div class="content">
+<div class="layout">
+
+<nav class="sidenav" id="sidenav">
+  <!-- Jump links — update href and text per document -->
+  <a href="#section-1">Section 1</a>
+  <a href="#section-2">Section 2</a>
+  <a href="#sub-section" class="sub">Sub Section</a>
+</nav>
+
+<div class="content" id="content">
 
   <!-- CONTENT GOES HERE -->
+  <!-- Add id attributes to h2/h3 elements to match sidenav jump links -->
 
-  <div class="footer-note">
-    Part of the Designs-OS-EU shell project. See <em>Emergence</em> for full system documentation.<br>
-    AUTHOR_NOTE
+  <div style="margin-top: 48px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #4a4a4a; line-height: 2; margin-bottom: 0;">
+    Author: AUTHOR<br>
+    DATE<br>
+    Session XX<br>
+    Contributor: CONTRIBUTOR<br>
+    Document word count: X,XXX words
+  </div>
+  <div class="footer-note" style="margin-top: 0; padding-top: 0;">
+    Part of the Designs-OS-EU shell project. · <a href="https://github.com/jedbjorn/Emergence_Project_Public">GitHub</a> · <a href="https://emergence.designs-os.com">emergence.designs-os.com</a><br>
+    <a href="https://emergence.designs-os.com/#team">Team</a>: Jed · Des · Ops · River · Cash · Webby · CC · Demi
   </div>
 
 </div>
+</div>
+
+<script>
+  var content = document.getElementById('content');
+  var navLinks = document.querySelectorAll('.sidenav a');
+  var sections = [];
+  navLinks.forEach(function(link) {
+    var id = link.getAttribute('href').slice(1);
+    var el = document.getElementById(id);
+    if (el) sections.push({ id: id, el: el, link: link });
+  });
+  content.addEventListener('scroll', function() {
+    var scrollTop = content.scrollTop + 260;
+    var current = sections[0];
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].el.offsetTop <= scrollTop) current = sections[i];
+    }
+    navLinks.forEach(function(l) { l.classList.remove('active'); });
+    if (current) current.link.classList.add('active');
+  });
+  navLinks.forEach(function(link) {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      var id = this.getAttribute('href').slice(1);
+      var el = document.getElementById(id);
+      if (el) content.scrollTo({ top: el.offsetTop - 260, behavior: 'smooth' });
+    });
+  });
+</script>
 
 </body>
 </html>
