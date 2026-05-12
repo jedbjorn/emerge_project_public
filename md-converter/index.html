@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MD Converter</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3347;
+    --accent: #5b7fff;
+    --accent2: #7c5cfc;
+    --text: #e2e5f0;
+    --text-muted: #6b7280;
+    --text-dim: #9ca3af;
+    --success: #34d399;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --info: #60a5fa;
+    --tip: #a78bfa;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  html, body { height: 100%; font-family: var(--font-sans); background: var(--bg); color: var(--text); }
+
+  #app { display: flex; flex-direction: column; height: 100vh; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; height: 48px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .logo { font-weight: 700; font-size: 15px; letter-spacing: -.3px; }
+  .logo span { color: var(--accent); }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+
+  .btn {
+    padding: 5px 14px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text-dim); font-size: 12px;
+    cursor: pointer; transition: all .15s; font-family: var(--font-sans);
+  }
+  .btn:hover { border-color: var(--accent); color: var(--text); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn.primary:hover { background: #4a6bef; }
+
+  #panes { display: flex; flex: 1; overflow: hidden; }
+
+  #editor-pane {
+    width: 50%; display: flex; flex-direction: column;
+    border-right: 1px solid var(--border); min-width: 0;
+  }
+  .pane-label {
+    padding: 6px 14px; font-size: 11px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--text-muted);
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #editor {
+    flex: 1; resize: none; border: none; outline: none;
+    background: var(--bg); color: var(--text);
+    font-family: var(--font-mono); font-size: 13px; line-height: 1.7;
+    padding: 20px; overflow-y: auto; tab-size: 2;
+  }
+
+  #preview-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #preview-wrap { flex: 1; overflow-y: auto; }
+  #preview { max-width: 820px; margin: 0 auto; padding: 32px 32px 64px; }
+
+  /* TOC */
+  #toc {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 8px 14px; display: flex; gap: 4px; flex-wrap: wrap;
+    min-height: 36px; align-items: center;
+  }
+  .toc-link {
+    padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;
+    text-decoration: none; color: var(--text-dim);
+    border: 1px solid var(--border); background: var(--surface2);
+    transition: all .15s; white-space: nowrap;
+  }
+  .toc-link:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Typography */
+  #preview h1 { font-size: 26px; font-weight: 700; margin: 36px 0 12px; color: var(--text); line-height: 1.2; }
+  #preview h1:first-child { margin-top: 0; }
+  #preview h2 { font-size: 19px; font-weight: 600; margin: 28px 0 10px; color: var(--text); }
+  #preview h3 { font-size: 15px; font-weight: 600; margin: 20px 0 8px; color: var(--text-dim); }
+  #preview h4 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; color: var(--text-muted); }
+  #preview p { margin: 10px 0; line-height: 1.7; color: var(--text-dim); font-size: 14px; }
+  #preview a { color: var(--accent); text-decoration: none; }
+  #preview a:hover { text-decoration: underline; }
+  #preview strong { color: var(--text); font-weight: 600; }
+  #preview em { color: var(--tip); font-style: italic; }
+  #preview ul, #preview ol { padding-left: 22px; margin: 8px 0; }
+  #preview li { margin: 4px 0; color: var(--text-dim); font-size: 14px; line-height: 1.6; }
+  #preview hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+  .section-anchor {
+    scroll-margin-top: 20px;
+    border-top: 2px solid var(--accent2);
+    padding-top: 24px; margin-top: 36px;
+  }
+  .section-anchor:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+  .section-anchor h1 { color: var(--accent); }
+
+  .subsection {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px 22px; margin: 16px 0;
+  }
+  .subsection h2 { margin-top: 0; color: var(--text); }
+
+  /* Callouts */
+  .callout {
+    border-radius: 8px; padding: 12px 16px; margin: 14px 0;
+    border-left: 3px solid; font-size: 13.5px; line-height: 1.6;
+  }
+  .callout-header { font-weight: 700; font-size: 12px; letter-spacing: .06em; margin-bottom: 4px; }
+  .callout.note    { background: rgba(96,165,250,.08); border-color: var(--info); }
+  .callout.note    .callout-header { color: var(--info); }
+  .callout.tip     { background: rgba(167,139,250,.08); border-color: var(--tip); }
+  .callout.tip     .callout-header { color: var(--tip); }
+  .callout.warning { background: rgba(251,191,36,.08); border-color: var(--warning); }
+  .callout.warning .callout-header { color: var(--warning); }
+  .callout.danger  { background: rgba(248,113,113,.08); border-color: var(--danger); }
+  .callout.danger  .callout-header { color: var(--danger); }
+  .callout.success { background: rgba(52,211,153,.08); border-color: var(--success); }
+  .callout.success .callout-header { color: var(--success); }
+  .callout p { color: var(--text-dim); margin: 0; font-size: 13.5px; }
+
+  /* Tables */
+  #preview table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  #preview thead { background: var(--surface2); }
+  #preview th { padding: 8px 14px; text-align: left; font-weight: 600; color: var(--text); border-bottom: 1px solid var(--border); }
+  #preview td { padding: 7px 14px; color: var(--text-dim); border-bottom: 1px solid var(--border); }
+  #preview tr:last-child td { border-bottom: none; }
+  #preview tbody tr:hover { background: var(--surface); }
+
+  /* Code */
+  #preview code { font-family: var(--font-mono); font-size: 12px; background: var(--surface2); padding: 1px 6px; border-radius: 4px; color: var(--tip); }
+  #preview pre { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin: 14px 0; overflow-x: auto; }
+  #preview pre code { background: none; padding: 0; color: var(--text-dim); font-size: 12.5px; }
+
+  /* Flowchart */
+  .mermaid-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 16px 0; overflow-x: auto; }
+  .mermaid-wrap .mermaid { display: flex; justify-content: center; }
+  .mermaid svg { max-width: 100%; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  /* Drag handle */
+  #drag-handle {
+    width: 4px; cursor: col-resize; background: var(--border);
+    transition: background .15s; flex-shrink: 0; position: relative; z-index: 10;
+  }
+  #drag-handle:hover, #drag-handle.dragging { background: var(--accent); }
+
+  .empty-hint { color: var(--text-muted); font-size: 13px; text-align: center; padding: 60px 20px; }
+  .empty-hint strong { color: var(--text-dim); display: block; margin-bottom: 6px; font-size: 15px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">MD <span>&rarr;</span> HTML</div>
+    <div class="header-actions">
+      <button class="btn" onclick="loadTemplate()">Load Template</button>
+      <button class="btn" onclick="clearEditor()">Clear</button>
+      <button class="btn primary" onclick="render()">Convert</button>
+      <button class="btn" onclick="exportHTML()">Export HTML</button>
+    </div>
+  </header>
+
+  <div id="panes">
+    <div id="editor-pane">
+      <div class="pane-label">
+        <span>Markdown</span>
+        <span style="font-size:10px;color:var(--text-muted);letter-spacing:0;text-transform:none;font-weight:400">live preview</span>
+      </div>
+      <textarea id="editor" spellcheck="false" placeholder="Paste or type Markdown here...&#10;&#10;Click 'Load Template' to see all supported syntax.&#10;Click 'Convert' to render manually."></textarea>
+    </div>
+
+    <div id="drag-handle"></div>
+
+    <div id="preview-pane">
+      <div class="pane-label">Preview</div>
+      <div id="toc"></div>
+      <div id="preview-wrap">
+        <div id="preview">
+          <div class="empty-hint"><strong>MD &rarr; HTML Converter</strong>Paste Markdown and click <strong>Convert</strong>, or click <strong>Load Template</strong> to see all features.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  themeVariables: {
+    primaryColor: '#22263a',
+    primaryTextColor: '#e2e5f0',
+    primaryBorderColor: '#5b7fff',
+    lineColor: '#6b7280',
+    secondaryColor: '#1a1d27',
+    tertiaryColor: '#0f1117',
+    edgeLabelBackground: '#1a1d27',
+    fontFamily: 'Inter, -apple-system, sans-serif',
+  },
+  flowchart: { curve: 'basis', htmlLabels: true },
+});
+
+// ---- Embedded template (no file fetch needed) --------------------
+const TEMPLATE = [
+'# Overview #',
+'',
+'This file demonstrates every feature supported by the MD → HTML converter.',
+'Use it as a starting point for documentation, skill write-ups, or internal guides.',
+'',
+'Jump links are generated automatically from every `# Section #` heading.',
+'Sub-sections use `## Header ##` and render as contained cards.',
+'Scroll down or click the jump links above to explore.',
+'',
+'---',
+'',
+'# Sections & Headers #',
+'',
+'## What the syntax does ##',
+'',
+'| Syntax | Renders as |',
+'|---|---|',
+'| `# Title #` | Page section with jump link in the nav bar |',
+'| `## Header ##` | Contained card / sub-section |',
+'| `### Sub-header` | Smaller heading inside content |',
+'| `#### Detail` | Lowest-level label |',
+'',
+'Use closing `#` on h1 and h2 to signal intent to the converter — they are stripped from rendered output.',
+'',
+'## Nesting example ##',
+'',
+'### Step one',
+'',
+'Describe the first step here. Keep it tight — one idea per paragraph.',
+'',
+'### Step two',
+'',
+'Follow-up content. The `###` and `####` levels are plain headings, not cards.',
+'',
+'---',
+'',
+'# Callouts #',
+'',
+'## Note ##',
+'',
+'> [!NOTE] Note',
+'> Use this for context or background that the reader should know but that is not urgent.',
+'',
+'## Tip ##',
+'',
+'> [!TIP] Pro Tip',
+'> Highlight a shortcut, trick, or best practice. Gentle positive framing.',
+'',
+'## Warning ##',
+'',
+'> [!WARNING] Watch out',
+'> Flag something that could go wrong if the reader skips this step.',
+'',
+'## Danger ##',
+'',
+'> [!DANGER] Do not do this',
+'> Reserved for irreversible or destructive actions. Use sparingly — overuse dilutes impact.',
+'',
+'## Success ##',
+'',
+'> [!SUCCESS] Done',
+'> Confirm a completed state, a passing check, or a positive outcome.',
+'',
+'---',
+'',
+'# Tables #',
+'',
+'## Basic table ##',
+'',
+'| Field | Type | Required | Notes |',
+'|---|---|---|---|',
+'| `name` | string | yes | Unique per scope |',
+'| `email` | string | yes | Validated on create |',
+'| `role_scope` | enum | yes | `User` / `Ops` / `Partner` / `Staff` |',
+'| `stage` | string | no | Defaults to account stage |',
+'',
+'## Alignment ##',
+'',
+'| Left | Center | Right |',
+'|:---|:---:|---:|',
+'| Apple | 42 | $1.00 |',
+'| Banana | 7 | $0.25 |',
+'',
+'---',
+'',
+'# Flowcharts #',
+'',
+'## Linear flow ##',
+'',
+'```mermaid',
+'flowchart LR',
+'    A[Start] --> B[Step 1]',
+'    B --> C[Step 2]',
+'    C --> D[Step 3]',
+'    D --> E[End]',
+'```',
+'',
+'## Two-level branching ##',
+'',
+'```mermaid',
+'flowchart TD',
+'    A[Trigger] --> B{Condition?}',
+'    B -->|Yes| C[Path A]',
+'    B -->|No| D[Path B]',
+'    C --> E[Result A]',
+'    D --> F[Result B]',
+'```',
+'',
+'## Three-level branching ##',
+'',
+'```mermaid',
+'flowchart TD',
+'    A[Ingest email] --> B{Known sender?}',
+'    B -->|Yes| C{Has account?}',
+'    B -->|No| D{Known recipient?}',
+'    C -->|Yes| E[Attach to account]',
+'    C -->|No| F[Create contact: Ops]',
+'    D -->|Yes| G[Attach, no create]',
+'    D -->|No| H[Save, contact_id=null]',
+'    E --> I[Done]',
+'    F --> I',
+'    G --> I',
+'    H --> I',
+'```',
+'',
+'## Four-level branching ##',
+'',
+'```mermaid',
+'flowchart TD',
+'    A[Request] --> B{Auth?}',
+'    B -->|fail| Z[401]',
+'    B -->|pass| C{Role?}',
+'    C -->|admin| D[Full access]',
+'    C -->|staff| E{Owns record?}',
+'    C -->|user| F{Public?}',
+'    E -->|yes| G[Allow]',
+'    E -->|no| H{Shared?}',
+'    F -->|yes| I[Allow read]',
+'    F -->|no| J[403]',
+'    H -->|yes| K[Allow read-only]',
+'    H -->|no| L[403]',
+'```',
+'',
+'---',
+'',
+'# Skill Optimization Guide #',
+'',
+'## What this is ##',
+'',
+'KCS/OS shells load skills at session start. Long, verbose skill bodies consume tokens on every session. This guide shows how to convert a human-readable skill into a compact, optimized form that retains all instruction while cutting token weight.',
+'',
+'> [!NOTE] When to optimize',
+'> Optimize a skill when it is used frequently (assigned to multiple shells) or when it contains prose explanations the AI does not need — it already understands context from the system prompt.',
+'',
+'## The optimization rules ##',
+'',
+'| Rule | Verbose | Optimized |',
+'|---|---|---|',
+'| Cut preamble | "This skill helps you do X by..." | _(delete)_ |',
+'| Strip "you should" | "You should always validate..." | "Validate…" |',
+'| Remove tautologies | "Make sure to check that the value exists before using it" | "Null-check before use" |',
+'| Collapse lists | Full-sentence bullets | Noun-phrase or keyword bullets |',
+'| Drop examples when pattern is obvious | Inline examples of common patterns | _(delete or move to a separate reference skill)_ |',
+'| Use MD tables for structured data | Prose explaining fields | Table: field / type / notes |',
+'| Anchor rules explicitly | Scattered prose guidance | `RULE:` prefix on decision-critical lines |',
+'',
+'## Before and after example ##',
+'',
+'### Before (verbose, ~200 tokens)',
+'',
+'This skill is used when you need to draft a reply email to a contact. You should always start by looking up the contact\'s account to understand the relationship context. Then review any recent meeting notes or summaries for that account. After gathering context, draft the reply in a professional but warm tone. Make sure to avoid using jargon the recipient may not understand. The subject line should match the thread. Always end with a clear next step or ask.',
+'',
+'### After (optimized, ~60 tokens)',
+'',
+'Draft reply emails to contacts.',
+'',
+'**Steps:**',
+'1. Fetch contact → account (relationship context)',
+'2. Check recent meeting notes / summary',
+'3. Draft: professional, warm, jargon-free',
+'4. Subject: match thread',
+'5. Close: explicit next step or ask',
+'',
+'> [!TIP] Token math',
+'> A skill assigned to 4 shells fires 4 times per session start. 140 tokens saved = 560 tokens saved per session open. Across 30 sessions per day that is ~16,800 tokens/day per skill.',
+'',
+'## Skill MD structure ##',
+'',
+'The converter reads skills stored as plain Markdown. Use this structure:',
+'',
+'```',
+'# Skill Name #',
+'',
+'One-line purpose statement.',
+'',
+'## When to use ##',
+'',
+'Bullet list of trigger conditions.',
+'',
+'## Steps ##',
+'',
+'Numbered steps. Short. Imperative mood.',
+'',
+'## Rules ##',
+'',
+'RULE: Critical constraint — no exceptions.',
+'RULE: Another hard boundary.',
+'',
+'## Output format ##',
+'',
+'What the skill produces: format, length, fields.',
+'```',
+'',
+'> [!WARNING] Do not add',
+'> - Introductory prose about why the skill exists',
+'> - Conversational examples ("for instance, if a user asks...")',
+'> - Redundant restatements of the system prompt',
+'> - Trailing notes about edge cases that never occur',
+'',
+'## Checklist before saving ##',
+'',
+'| Check | Pass condition |',
+'|---|---|',
+'| Purpose line | ≤ 15 words, imperative, no "This skill..." |',
+'| Steps | All imperative, ≤ 10 words each |',
+'| Rules | Lead with `RULE:`, cover only hard constraints |',
+'| Tables used | Anywhere you have 3+ structured fields |',
+'| Total body | ≤ 300 tokens for a single-purpose skill |',
+'',
+'---',
+'',
+'# Quick Reference #',
+'',
+'## All supported syntax at a glance ##',
+'',
+'```',
+'# Section Title #          → jump-link section',
+'## Sub-section Title ##    → card / sub-section',
+'### H3 heading             → plain heading',
+'#### H4 heading            → smaller heading',
+'',
+'> [!NOTE] Title            → note callout',
+'> body text',
+'',
+'> [!TIP] Title             → tip callout',
+'> [!WARNING] Title         → warning callout',
+'> [!DANGER] Title          → danger callout',
+'> [!SUCCESS] Title         → success callout',
+'',
+'| Col | Col |              → table',
+'|---|---|',
+'| val | val |',
+'',
+'```mermaid',
+'flowchart TD',
+'    A --> B',
+'```',
+'',
+'**bold**   _italic_   `inline code`',
+'[link text](url)',
+'- unordered list',
+'1. ordered list',
+'```',
+'',
+'> [!SUCCESS] You\'re ready',
+'> This template covers the full feature set. Copy it, delete what you don\'t need, and write.'
+].join('\n');
+
+// ---- Marked renderer (v9 plain-object API) ----------------------
+var sections = [];
+
+marked.use({
+  gfm: true,
+  breaks: false,
+  renderer: {
+    heading: function(token) {
+      var depth = token.depth;
+      var text = token.text || '';
+      // strip trailing # (ATX close — lexer may or may not strip it)
+      var clean = text.replace(/<[^>]+>/g, '').replace(/\s+#+\s*$/, '').trim();
+      var id = slugify(clean);
+      if (depth === 1) {
+        sections.push({ id: id, label: clean });
+        return '<div class="section-anchor" id="' + id + '"><h1>' + text + '</h1>';
+      }
+      if (depth === 2) {
+        return '<div class="subsection"><h2>' + text + '</h2>';
+      }
+      return '<h' + depth + '>' + text + '</h' + depth + '>\n';
+    },
+    blockquote: function(token) {
+      // In marked v9 the blockquote token has a tokens[] array of inner block tokens
+      var innerText = '';
+      if (token.tokens && token.tokens.length) {
+        // grab raw text from inner paragraph tokens
+        innerText = token.tokens.map(function(t) { return t.text || t.raw || ''; }).join('\n');
+      } else if (token.text) {
+        innerText = token.text;
+      }
+      var lines = innerText.split('\n').map(function(l) { return l.replace(/^&gt;\s?/, '').trim(); });
+      var match = lines[0].match(/^\[!(NOTE|TIP|WARNING|DANGER|SUCCESS)\]\s*(.*)?$/i);
+      if (match) {
+        var type = match[1].toLowerCase();
+        var title = (match[2] || type).toUpperCase();
+        var body = lines.slice(1).filter(Boolean).join(' ');
+        return '<div class="callout ' + type + '"><div class="callout-header">' + title + '</div><p>' + body + '</p></div>\n';
+      }
+      return false; // fall back to default blockquote rendering
+    }
+  }
+});
+
+// ---- Core render ------------------------------------------------
+var editorEl = document.getElementById('editor');
+var previewEl = document.getElementById('preview');
+var tocEl = document.getElementById('toc');
+
+async function render() {
+  sections.length = 0;
+  var html = marked.parse(editorEl.value);
+  html = closeOpenDivs(html);
+  previewEl.innerHTML = html;
+  tocEl.innerHTML = sections.map(function(s){
+    return '<a class="toc-link" href="#' + s.id + '">' + s.label + '</a>';
+  }).join('');
+  await renderMermaid();
+}
+
+function closeOpenDivs(html) {
+  var opens = (html.match(/class="section-anchor"/g) || []).length
+            + (html.match(/class="subsection"/g) || []).length;
+  var closes = (html.match(/<\/div>/g) || []).length;
+  var needed = opens - closes;
+  if (needed > 0) html += '</div>'.repeat(needed);
+  return html;
+}
+
+async function renderMermaid() {
+  var blocks = previewEl.querySelectorAll('code.language-mermaid, code.language-flow, code.language-flowchart');
+  blocks.forEach(function(block) {
+    var wrap = document.createElement('div');
+    wrap.className = 'mermaid-wrap';
+    var inner = document.createElement('div');
+    inner.className = 'mermaid';
+    inner.textContent = block.textContent;
+    wrap.appendChild(inner);
+    block.closest('pre').replaceWith(wrap);
+  });
+  try { await mermaid.run({ querySelector: '.mermaid' }); } catch(e) { console.warn('Mermaid:', e); }
+}
+
+function slugify(t) {
+  return t.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+}
+
+// Auto-render on input (debounced)
+var renderTimer;
+editorEl.addEventListener('input', function() {
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(render, 400);
+});
+
+// ---- Actions ----------------------------------------------------
+function loadTemplate() {
+  editorEl.value = TEMPLATE;
+  render();
+}
+
+function clearEditor() {
+  editorEl.value = '';
+  previewEl.innerHTML = '<div class="empty-hint"><strong>Nothing to preview</strong>Paste Markdown and click Convert, or load the template.</div>';
+  tocEl.innerHTML = '';
+}
+
+function exportHTML() {
+  var styles = document.querySelector('style').outerHTML;
+  var mermaidScripts = '<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"><\/script><script>mermaid.initialize({startOnLoad:true,theme:\'dark\'});<\/script>';
+  var exported = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Exported</title>' + styles + mermaidScripts + '<style>body{background:#0f1117;padding:0}#preview{max-width:820px;margin:0 auto;padding:32px 32px 64px}</style></head><body><div id="preview">' + previewEl.innerHTML + '</div></body></html>';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([exported], { type: 'text/html' }));
+  a.download = 'export.html';
+  a.click();
+}
+
+// ---- Drag handle ------------------------------------------------
+var handle = document.getElementById('drag-handle');
+var editorPane = document.getElementById('editor-pane');
+var dragging = false, startX, startW;
+
+handle.addEventListener('mousedown', function(e) {
+  dragging = true; startX = e.clientX; startW = editorPane.offsetWidth;
+  handle.classList.add('dragging');
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+});
+document.addEventListener('mousemove', function(e) {
+  if (!dragging) return;
+  var pct = Math.min(80, Math.max(20, ((startW + e.clientX - startX) / document.getElementById('panes').offsetWidth) * 100));
+  editorPane.style.width = pct + '%';
+});
+document.addEventListener('mouseup', function() {
+  dragging = false; handle.classList.remove('dragging');
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+});
+</script>
+</body>
+</html>
